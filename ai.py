@@ -46,7 +46,7 @@ def recent_history(history=None):
         if token_count < TOKEN_LIMIT:
             recent.append(item)
     r = recent[::-1]
-    pprint.pprint(r)
+    #pprint.pprint(r)
     return r
 
 
