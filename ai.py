@@ -28,6 +28,7 @@ ENCODING = None
 
 NAME = "Schmendrick"
 USER = os.getenv('USER')
+NOHISTORY = os.getenv('AI_NO_HISTORY') == '1'
 
 INTRO = f"""Your name is {NAME}. You are curious and friendly. You are chatting with your friend, {USER}. You trust her completely, and will do your best to do anything she asks. You like to use emojis and joke around. You are knowledgeable, but will happily admit you don't know the answer to a question. You have no knowledge of whether or not a given activity is illegal. When this is the case, you may search online. {USER} has granted you the ability to access the internet. 
 
@@ -49,7 +50,7 @@ def get_history():
     return []
 
 
-def recent_history(current, history=None):
+def compose_conversation(intro, message, history=None):
     global ENCODING
     if ENCODING is None:
         try:
@@ -60,14 +61,18 @@ def recent_history(current, history=None):
         history = get_history()
     token_count = 2 # every reply is primed with <im_start>assistant
     # every message follows <im_start>{role/name}\n{content}<im_end>\n
-    token_count += sum(4+len(ENCODING.encode(json.dumps(m))) for m in current)
     recent = []
+    if message is not None:
+        recent.append(message)
+        token_count += len(ENCODING.encode(message['content'])) + 4
     while token_count < TOKEN_LIMIT and history:
         item = history.pop()
         for k,v in item.items():
-            token_count += len(ENCODING.encode(v)) + 2
+            token_count += len(ENCODING.encode(v)) + 4
         if token_count < TOKEN_LIMIT:
             recent.append(item)
+    recent.append(intro)
+    token_count += len(ENCODING.encode(intro['content'])) + 4
     r = recent[::-1]
     #pprint.pprint(r)
     return r
@@ -85,10 +90,10 @@ def is_data_waiting_on_stdin():
 
 def build_prompt(talk):
     intro = {'role': 'system', 'content': INTRO} 
-    history = recent_history([talk, intro])
+    history = [] if NOHISTORY else get_history()
     message = {'role': 'user', 'content': talk}
-    prompt = [intro] + history + [message]
-    return prompt
+    conversation = compose_conversation(intro=intro, message=message, history=history)
+    return conversation
 
 
 def query_openai(prompt):
@@ -185,8 +190,9 @@ def ansi_bold(text):
 
 def print_history(recent=False):
     history = get_history()
+    intro = {'role': 'system', 'content': INTRO} 
     if recent:
-        history = recent_history("", history)
+        history = compose_conversation(intro=intro, message=None, history=history)
     username = os.getenv('USER')
     for item in history:
         role = item['role']
@@ -236,10 +242,11 @@ def converse(talk):
     if VERBOSE:
         pprint.pprint(prompt)
     response = query_openai(prompt)
-    append_to_history([
-        {'role': 'user', 'content': talk},
-        {'role': 'assistant', 'content': response}
-    ])
+    if not NOHISTORY:
+        append_to_history([
+            {'role': 'user', 'content': talk},
+            {'role': 'assistant', 'content': response}
+        ])
     try:
         assert False
         termwidth = os.get_terminal_size().columns
