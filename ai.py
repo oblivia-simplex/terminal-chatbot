@@ -20,8 +20,15 @@ import signal
 
 CHAT_HISTORY = f"{os.getenv('HOME')}/.chat_history.json"
 MODEL = "gpt-4"
-MAX_TOKENS = 2048
-TOKEN_LIMIT = 8192 - MAX_TOKENS
+if os.getenv("AI_MODEL") is not None:
+    MODEL = os.getenv("AI_MODEL")
+TOKEN_LIMITS_BY_MODEL = {
+        'gpt-3.5-turbo': 4096,
+        'gpt-4': 8192
+}
+MAX_TOKENS = TOKEN_LIMITS_BY_MODEL[MODEL] // 4
+TOKEN_LIMIT = TOKEN_LIMITS_BY_MODEL[MODEL] - MAX_TOKENS
+TOKEN_LIMIT -= 100 # just to be safe
 TEMPERATURE = 0.2
 SILENT = True
 ENCODING = None
