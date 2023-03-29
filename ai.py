@@ -24,6 +24,7 @@ if os.getenv("AI_MODEL") is not None:
     MODEL = os.getenv("AI_MODEL")
 TOKEN_LIMITS_BY_MODEL = {
         'gpt-3.5-turbo': 4096,
+        'text-davinci-003': 4096,
         'gpt-4': 8192,
         'claude-v1': 4096
 }
@@ -107,8 +108,22 @@ def build_prompt(talk):
 def query(prompt):
     if MODEL.startswith('claude'):
         return query_anthropic(prompt)
-    return query_openai(prompt)
+    if MODEL.startswith('gpt-'):
+        return query_openai(prompt)
+    else:
+        return query_openai_completion(prompt)
 
+
+def query_openai_completion(prompt):
+    response = openai.Completion.create(
+            model = MODEL,
+            prompt = flatten_prompt(prompt),
+            max_tokens = MAX_TOKENS,
+            temperature = TEMPERATURE,
+            top_p = 1,
+            frequency_penalty = 1.0
+    )
+    return response.choices[0].text
 
 def query_openai(prompt):
     response = openai.ChatCompletion.create(
@@ -117,12 +132,13 @@ def query_openai(prompt):
             max_tokens = MAX_TOKENS,
             temperature = TEMPERATURE,
             top_p = 1,
-            frequency_penalty = 1.0
+            frequency_penalty = 1.0,
+            stop_sequences = ["\n\nHuman:"]
     )
     return response.choices[0].message.content
 
 
-def groom_anthropic_prompt(prompt):
+def flatten_prompt(prompt):
     # Find the system message
     system_message = [x for x in prompt if x['role'] == 'system'][0]
     groomed = ""
@@ -134,7 +150,7 @@ def groom_anthropic_prompt(prompt):
 
 
 def query_anthropic(prompt):
-    return query_anthropic_raw(groom_anthropic_prompt(prompt))
+    return query_anthropic_raw(flatten_prompt(prompt))
 
 def query_anthropic_raw(groomed):
     ## This function interacts with anthropic's API. 
