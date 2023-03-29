@@ -24,7 +24,8 @@ if os.getenv("AI_MODEL") is not None:
     MODEL = os.getenv("AI_MODEL")
 TOKEN_LIMITS_BY_MODEL = {
         'gpt-3.5-turbo': 4096,
-        'gpt-4': 8192
+        'gpt-4': 8192,
+        'claude-v1': 4096
 }
 MAX_TOKENS = TOKEN_LIMITS_BY_MODEL[MODEL] // 4
 TOKEN_LIMIT = TOKEN_LIMITS_BY_MODEL[MODEL] - MAX_TOKENS
@@ -33,7 +34,7 @@ TEMPERATURE = 0.2
 SILENT = True
 ENCODING = None
 
-NAME = "Schmendrick"
+NAME = "Wintermute"
 USER = os.getenv('USER')
 NOHISTORY = os.getenv('AI_NO_HISTORY') == '1'
 
@@ -103,6 +104,12 @@ def build_prompt(talk):
     return conversation
 
 
+def query(prompt):
+    if MODEL.startswith('claude'):
+        return query_anthropic(prompt)
+    return query_openai(prompt)
+
+
 def query_openai(prompt):
     response = openai.ChatCompletion.create(
             model = MODEL,
@@ -113,6 +120,35 @@ def query_openai(prompt):
             frequency_penalty = 1.0
     )
     return response.choices[0].message.content
+
+
+
+def query_anthropic(prompt):
+    ## This function interacts with anthropic's API. 
+    ## First, groom the prompt to make it compatible with anthropic's API
+
+    # Find the system message
+    system_message = [x for x in prompt if x['role'] == 'system'][0]
+    groomed = ""
+    for msg in prompt:
+        role = "Human" if msg['role'] in ('user', 'system') else "Assistant"
+        groomed += f"\n\n{role}: {msg['content']}"
+    groomed += "\n\nAssistant: "
+
+    data = {"prompt": groomed,
+            "model": "claude-v1",
+            "temperature": TEMPERATURE,
+            "max_tokens_to_sample": MAX_TOKENS,
+            "stop_sequences": ["\n\nHuman:"]}
+    headers = {"x-api-key": os.getenv("ANTHROPIC_API_KEY"),
+            "content-type": "application/json"}
+    response = requests.post("https://api.anthropic.com/v1/complete", data=json.dumps(data), headers=headers)
+    data = response.json()
+    try:
+        return data['completion'].strip()
+    except KeyError:
+        print(f"Anthropic API error: {data}")
+        return data
 
 
 
@@ -231,7 +267,7 @@ def main():
         signal.signal(signal.SIGTERM, signal_handler)
         while True:
             try:
-                talk = input(color_text("ai> ", "cyan")).strip()
+                talk = input(color_text(f"{MODEL}> ", "cyan")).strip()
                 if len(talk) == 0:
                     talk = "go on"
                 converse(talk)
@@ -251,7 +287,7 @@ def converse(talk):
     prompt = build_prompt(talk)
     if VERBOSE:
         pprint.pprint(prompt)
-    response = query_openai(prompt)
+    response = query(prompt)
     if not NOHISTORY:
         append_to_history([
             {'role': 'user', 'content': talk},
@@ -289,4 +325,8 @@ def converse(talk):
 
 
 if __name__ == "__main__":
-    main()
+    # Make sure we're not in ipython
+    if 'IPython' not in sys.modules:
+        main()
+    else:
+        print("In REPL.")
