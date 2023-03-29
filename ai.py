@@ -122,11 +122,7 @@ def query_openai(prompt):
     return response.choices[0].message.content
 
 
-
-def query_anthropic(prompt):
-    ## This function interacts with anthropic's API. 
-    ## First, groom the prompt to make it compatible with anthropic's API
-
+def groom_anthropic_prompt(prompt):
     # Find the system message
     system_message = [x for x in prompt if x['role'] == 'system'][0]
     groomed = ""
@@ -134,6 +130,15 @@ def query_anthropic(prompt):
         role = "Human" if msg['role'] in ('user', 'system') else "Assistant"
         groomed += f"\n\n{role}: {msg['content']}"
     groomed += "\n\nAssistant: "
+    return groomed
+
+
+def query_anthropic(prompt):
+    return query_anthropic_raw(groom_anthropic_prompt(prompt))
+
+def query_anthropic_raw(groomed):
+    ## This function interacts with anthropic's API. 
+    ## First, groom the prompt to make it compatible with anthropic's API
 
     data = {"prompt": groomed,
             "model": "claude-v1",
@@ -148,7 +153,7 @@ def query_anthropic(prompt):
         return data['completion'].strip()
     except KeyError:
         print(f"Anthropic API error: {data}")
-        return data
+        return f"Anthropic API error: {data['detail']}"
 
 
 
