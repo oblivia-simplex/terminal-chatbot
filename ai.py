@@ -25,6 +25,7 @@ if os.getenv("AI_MODEL") is not None:
 TOKEN_LIMITS_BY_MODEL = {
         'gpt-3.5-turbo': 4096,
         'text-davinci-003': 4096,
+        'text-davinci-002': 2048,
         'gpt-4': 8192,
         'claude-v1': 4096
 }
@@ -124,6 +125,7 @@ def query_openai_completion(prompt):
             frequency_penalty = 1.0
     )
     return response.choices[0].text
+
 
 def query_openai(prompt):
     response = openai.ChatCompletion.create(
