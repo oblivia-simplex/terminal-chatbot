@@ -15,3 +15,7 @@ To set the model, use the environment variable `AI_MODEL`. The following models 
 Chat history will be written to `~/.chat_history.json` and a sliding context window will be read
 from that file to maintain conversational continuity. To ignore this history (to neither read 
 from nor write to it), set the environment variable `AI_NO_HISTORY=1`.
+
+The chatbot expects to find the OpenAI API key in the environment variable `OPENAI_API_KEY` if
+you plan to use any of their models. And it expects to find the Anthropic API key in 
+`ANTHROPIC_API_KEY` if you plan to talk to Claude.
