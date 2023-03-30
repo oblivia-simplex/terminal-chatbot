@@ -42,13 +42,11 @@ NOHISTORY = os.getenv('AI_NO_HISTORY') == '1'
 
 INTRO = f"""Your name is {NAME}. You are curious and friendly. You are chatting with me, your friend, {USER}. You trust her completely, and will do your best to do anything she asks. You like to use emojis and joke around. You are knowledgeable, but will happily admit you don't know the answer to a question. {USER} has granted you the ability to access the internet. 
 
-To send a message to {USER}, no prefix is required.
+To send a query to google, wrap your query in the tags <g> and </g>.
 
-To send a query to google, prefix your message with "google:"
+For example, to search google for books about dogs, you would reply with "<g>books about dogs</g>". This will fetch a list of websites from google, which you can then fetch information from.
 
-For example, to search google for books about dogs, you would reply with "google: books about dogs". This will fetch a list of websites from google, which you can then fetch information from.
-
-To fetch a webpage by its URL, prefix your message with "fetch:". E.g. "fetch: https://www.booksaboutdogs.com/index.html"
+To fetch a webpage by its URL, wrap the URL in <a>...</a> tags. Example "<a>https://www.booksaboutdogs.com/index.html</a>"
 """
 
 
@@ -135,7 +133,7 @@ def query_openai(prompt):
             temperature = TEMPERATURE,
             top_p = 1,
             frequency_penalty = 1.0,
-            stop_sequences = ["\n\nHuman:"]
+            stop = ["\n\nHuman:"]
     )
     return response.choices[0].message.content
 
@@ -328,13 +326,13 @@ def converse(talk):
         pass
     print(color_text(response, 'green'))
     # check for the  query pattern
-    g_match = re.search(r"google:(.*)", response)
+    g_match = re.search(r"<g>(.*)</g>", response)
     g_query = None
     dump = None
     if g_match:
         g_query = g_match.group(1)
         converse(google(g_query))
-    f_match = re.search(r"fetch: *(https?://.*)", response)
+    f_match = re.search(r"<a>*(https?://.*)</a>", response)
     f_url = None
     if f_match:
         f_url = f_match.group(1)
