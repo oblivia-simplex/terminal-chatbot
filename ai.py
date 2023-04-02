@@ -27,7 +27,7 @@ TOKEN_LIMITS_BY_MODEL = {
         'text-davinci-003': 4096,
         'text-davinci-002': 2048,
         'gpt-4': 8192,
-        'claude-v1': 4096
+        'claude-v1': 8192*2
 }
 MAX_TOKENS = TOKEN_LIMITS_BY_MODEL[MODEL] // 4
 TOKEN_LIMIT = TOKEN_LIMITS_BY_MODEL[MODEL] - MAX_TOKENS
