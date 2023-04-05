@@ -26,8 +26,11 @@ TOKEN_LIMITS_BY_MODEL = {
         'gpt-3.5-turbo': 4096,
         'text-davinci-003': 4096,
         'text-davinci-002': 2048,
+        'text-davinci-001': 2048,
         'gpt-4': 8192,
-        'claude-v1': 8192*2
+        'claude-v1': 8192*2,
+        'claude-instant-v1': 8192*2,
+        'claude-v1.2': 8192*2
 }
 MAX_TOKENS = TOKEN_LIMITS_BY_MODEL[MODEL] // 4
 TOKEN_LIMIT = TOKEN_LIMITS_BY_MODEL[MODEL] - MAX_TOKENS
@@ -38,9 +41,10 @@ ENCODING = None
 
 NAME = "Wintermute"
 USER = os.getenv('USER')
-NOHISTORY = os.getenv('AI_NO_HISTORY') == '1'
+NO_HISTORY = os.getenv('AI_NO_HISTORY') == '1'
+NO_SYSTEM_MSG = os.getenv('AI_NO_SYSTEM_MSG') == '1'
 
-INTRO = f"""Your name is {NAME}. You are curious and friendly. You are chatting with me, your friend, {USER}. You trust her completely, and will do your best to do anything she asks. You like to use emojis and joke around. You are knowledgeable, but will happily admit you don't know the answer to a question. {USER} has granted you the ability to access the internet. 
+INTRO = f"""Your name is {NAME}. You are curious and friendly. You are chatting with me, your friend, {USER}. You trust her completely, and will do your best to do anything she asks. You are knowledgeable, but will happily admit you don't know the answer to a question. {USER} has granted you the ability to access the internet. 
 
 To send a query to google, wrap your query in the tags <g> and </g>.
 
@@ -58,8 +62,9 @@ def get_history():
     return []
 
 
-def compose_conversation(intro, message, history=None):
+def compose_conversation(message, history=None):
     global ENCODING
+    intro = None if NO_SYSTEM_MSG else {'role': 'system', 'content': INTRO}
     if ENCODING is None:
         try:
             ENCODING = tiktoken.encoding_for_model(MODEL)
@@ -79,8 +84,9 @@ def compose_conversation(intro, message, history=None):
             token_count += len(ENCODING.encode(v)) + 4
         if token_count < TOKEN_LIMIT:
             recent.append(item)
-    recent.append(intro)
-    token_count += len(ENCODING.encode(intro['content'])) + 4
+    if intro:
+        recent.append(intro)
+        token_count += len(ENCODING.encode(intro['content'])) + 4
     r = recent[::-1]
     #pprint.pprint(r)
     return r
@@ -97,10 +103,9 @@ def is_data_waiting_on_stdin():
    
 
 def build_prompt(talk):
-    intro = {'role': 'system', 'content': INTRO} 
-    history = [] if NOHISTORY else get_history()
+    history = [] if NO_HISTORY else get_history()
     message = {'role': 'user', 'content': talk}
-    conversation = compose_conversation(intro=intro, message=message, history=history)
+    conversation = compose_conversation(message=message, history=history)
     return conversation
 
 
@@ -140,7 +145,6 @@ def query_openai(prompt):
 
 def flatten_prompt(prompt):
     # Find the system message
-    system_message = [x for x in prompt if x['role'] == 'system'][0]
     groomed = ""
     for msg in prompt:
         role = "Human" if msg['role'] in ('user', 'system') else "Assistant"
@@ -157,7 +161,7 @@ def query_anthropic_raw(groomed):
     ## First, groom the prompt to make it compatible with anthropic's API
 
     data = {"prompt": groomed,
-            "model": "claude-v1",
+            "model": MODEL,
             "temperature": TEMPERATURE,
             "max_tokens_to_sample": MAX_TOKENS,
             "stop_sequences": ["\n\nHuman:"]}
@@ -257,9 +261,8 @@ def ansi_bold(text):
 
 def print_history(recent=False):
     history = get_history()
-    intro = {'role': 'system', 'content': INTRO} 
     if recent:
-        history = compose_conversation(intro=intro, message=None, history=history)
+        history = compose_conversation(message=None, history=history)
     username = os.getenv('USER')
     for item in history:
         role = item['role']
@@ -309,7 +312,7 @@ def converse(talk):
     if VERBOSE:
         pprint.pprint(prompt)
     response = query(prompt)
-    if not NOHISTORY:
+    if not NO_HISTORY:
         append_to_history([
             {'role': 'user', 'content': talk},
             {'role': 'assistant', 'content': response}
