@@ -20,18 +20,10 @@ import signal
 
 CHAT_HISTORY = f"{os.getenv('HOME')}/.chat_history.json"
 MODEL = "gpt-4"
+
 if os.getenv("AI_MODEL") is not None:
     MODEL = os.getenv("AI_MODEL")
-TOKEN_LIMITS_BY_MODEL = {
-        'gpt-3.5-turbo': 4096,
-        'text-davinci-003': 4096,
-        'text-davinci-002': 2048,
-        'gpt-4': 8192,
-        'claude-v1': 8192*2
-}
-MAX_TOKENS = TOKEN_LIMITS_BY_MODEL[MODEL] // 4
-TOKEN_LIMIT = TOKEN_LIMITS_BY_MODEL[MODEL] - MAX_TOKENS
-TOKEN_LIMIT -= 256 # just to be safe
+
 TEMPERATURE = 0.2
 SILENT = True
 ENCODING = None
@@ -51,6 +43,30 @@ To fetch a webpage by its URL, wrap the URL in <a>...</a> tags. Example "<a>http
 
 
 VERBOSE = os.getenv("VERBOSE") == "1"
+
+
+def set_model(model):
+    global MODEL
+    global MAX_TOKENS
+    global TOKEN_LIMIT
+
+    TOKEN_LIMITS_BY_MODEL = {
+            'gpt-3.5-turbo': 4096,
+            'text-davinci-003': 4096,
+            'text-davinci-002': 2048,
+            'text-davinci-001': 2048,
+            'gpt-4': 8192,
+            'claude-v1': 8192*2
+    }
+
+    if model not in TOKEN_LIMITS_BY_MODEL:
+        raise Exception(f"Unknown model {model}")
+
+    MODEL = model
+    MAX_TOKENS = TOKEN_LIMITS_BY_MODEL[MODEL] // 4
+    TOKEN_LIMIT = TOKEN_LIMITS_BY_MODEL[MODEL] - MAX_TOKENS
+    TOKEN_LIMIT -= 256 # just to be safe
+
 
 def get_history():
     if os.path.exists(CHAT_HISTORY):
@@ -276,26 +292,6 @@ def signal_handler(sig, frame):
     sys.exit(1)
 
 
-def main():
-    talk = ""
-    if is_data_waiting_on_stdin():
-        talk = sys.stdin.read()
-    talk += " ".join(sys.argv[1:])
-    if talk.strip().startswith("-i"):
-        # interactive mode
-        # trap ctrl-C and ctrl-D and exit gracefully
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
-        while True:
-            try:
-                talk = input(color_text(f"{MODEL}> ", "cyan")).strip()
-                if len(talk) == 0:
-                    talk = "go on"
-                converse(talk)
-            except EOFError:
-                print()
-                return
-    converse(talk)
 
 
 def converse(talk):
@@ -342,8 +338,46 @@ def converse(talk):
         say(response)
     return
 
+def interactive():
+    # interactive mode
+    # trap ctrl-C and ctrl-D and exit gracefully
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    while True:
+        try:
+            talk = input(color_text(f"{MODEL}> ", "cyan")).strip()
+            if len(talk) == 0:
+                talk = "go on"
+            converse(talk)
+        except EOFError:
+            print()
+            return
+
+def main():
+    global MODEL, TOKEN_LIMIT, NOHISTORY, SILENT, VERBOSE
+    parser = argparse.ArgumentParser(description="Command line LLM interface.")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose mode.")
+    parser.add_argument("-m", "--model", default=MODEL, help="Model name.")
+    parser.add_argument("-n", "--nohistory", action="store_true", help="Don't save or load history.")
+    parser.add_argument("-i", "--interactive", action="store_true", help="Interactive mode.")
+    parser.add_argument("-s", "--speak", action="store_true", help="Speak the response.")
+    # now take any positional arguments as the input text
+    parser.add_argument("text", nargs="*", help="Input text.")
+    args = parser.parse_args()
+    set_model(args.model)
+    NOHISTORY = args.nohistory
+    VERBOSE = args.verbose
+    SILENT = not args.speak
 
 
+    talk = " ".join(args.text)
+    if is_data_waiting_on_stdin():
+        if talk:
+            talk += "\n\n"
+        talk += sys.stdin.read()
+    if args.interactive:
+        return interactive()
+    converse(talk)
 
 if __name__ == "__main__":
     # Make sure we're not in ipython
