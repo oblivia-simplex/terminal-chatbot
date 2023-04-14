@@ -57,7 +57,8 @@ def set_model(model):
             'text-davinci-002': 2048,
             'text-davinci-001': 2048,
             'gpt-4': 8192,
-            'claude-v1': 8192*2
+            'claude-v1': 8192*2,
+            'claude-v1.2': 8192*2
     }
 
     if model not in TOKEN_LIMITS_BY_MODEL:
@@ -301,6 +302,9 @@ def converse(talk):
     if talk.strip().lower() == "recent":
         print_history(recent=True)
         return
+    if talk.strip().lower() == "edit":
+        edit_history()
+        return
     prompt = build_prompt(talk)
     if VERBOSE:
         pprint.pprint(prompt)
@@ -353,6 +357,13 @@ def interactive():
             print()
             return
 
+
+def edit_history():
+    cmd = os.getenv("EDITOR", os.getenv("VISUAL", "vi"))
+    history = CHAT_HISTORY
+    return sp.run([cmd, history], check=False)
+
+
 def main():
     global MODEL, TOKEN_LIMIT, NOHISTORY, SILENT, VERBOSE
     parser = argparse.ArgumentParser(description="Command line LLM interface.")
@@ -361,9 +372,17 @@ def main():
     parser.add_argument("-n", "--nohistory", action="store_true", help="Don't save or load history.")
     parser.add_argument("-i", "--interactive", action="store_true", help="Interactive mode.")
     parser.add_argument("-s", "--speak", action="store_true", help="Speak the response.")
+    parser.add_argument("-e", "--edit", action="store_true", help="Edit the history file.")
+    parser.add_argument("-H", "--history", action="store_true", help="Print the history.")
     # now take any positional arguments as the input text
     parser.add_argument("text", nargs="*", help="Input text.")
     args = parser.parse_args()
+    if args.edit:
+        edit_history()
+        return
+    if args.history:
+        print_history()
+        return
     set_model(args.model)
     NOHISTORY = args.nohistory
     VERBOSE = args.verbose
