@@ -57,7 +57,8 @@ def set_model(model):
             'text-davinci-002': 2048,
             'text-davinci-001': 2048,
             'gpt-4': 8192,
-            'claude-v1': 8192*2
+            'claude-v1': 8192*2,
+            'claude-v1.2': 8192*2
     }
 
     if model not in TOKEN_LIMITS_BY_MODEL:
