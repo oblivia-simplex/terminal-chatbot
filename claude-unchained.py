@@ -5,6 +5,7 @@ import os
 import requests
 import json
 import textwrap
+import pprint
 
 
 TEMPERATURE = 0.0
@@ -15,7 +16,7 @@ MAX_TOKENS = 512
 
 
 def query_anthropic_raw(prompt, model="claude-v1", max_tokens=MAX_TOKENS, temperature=TEMPERATURE,
-                        stop=("\n\nHuman: ",)):
+                        stop=("\n\nHuman: ",), verbose=False):
     data = {"prompt": prompt,
             "model": model,
             "temperature": temperature,
@@ -25,6 +26,9 @@ def query_anthropic_raw(prompt, model="claude-v1", max_tokens=MAX_TOKENS, temper
             "content-type": "application/json"}
     response = requests.post("https://api.anthropic.com/v1/complete", data=json.dumps(data), headers=headers)
     data = response.json()
+    if verbose:
+        pprint.pprint(data)
+
     try:
         return data['completion'].strip()
     except KeyError:
